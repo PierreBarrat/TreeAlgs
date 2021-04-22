@@ -1,0 +1,1 @@
+include("CompatibilityTree/test.jl")

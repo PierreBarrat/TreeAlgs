@@ -1,0 +1,8 @@
+name = "TreeAlgs"
+uuid = "12935546-5c18-4ff8-8224-37e394524ca8"
+authors = ["PierreBarrat <p.barrat@live.fr>"]
+version = "0.1.0"
+
+[deps]
+LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
+TreeTools = "62f0eae3-8c0e-4032-a621-7756092209e5"
