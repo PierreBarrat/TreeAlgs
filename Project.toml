@@ -6,4 +6,6 @@ version = "0.1.0"
 [deps]
 BioSequences = "7e6ae17a-c86d-528c-b3b9-7f778a29fe59"
 LightGraphs = "093fc24a-ae57-5d10-9952-331d41423f4d"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+SubstitutionModels = "8365b1bb-bd83-58ee-a267-f2965fc81c73"
 TreeTools = "62f0eae3-8c0e-4032-a621-7756092209e5"

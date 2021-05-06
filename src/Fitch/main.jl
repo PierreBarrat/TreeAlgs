@@ -8,6 +8,42 @@ length(s::FitchState) = length(s.state)
 
 
 """
+"""
+function fitch_mutations!(t::Tree, outkey=:muts, seqkey=:seq; clear_fitch_states=true, variable_positions=Int64[])
+	fitchkey = :fitchstate
+	# Init containers for mutations
+	for n in nodes(t)
+		TreeTools.recursive_set!(n.data.dat, Array{Mutation,1}(undef, 0), outkey)
+	end
+
+	#Getting variable positions
+	seq = TreeTools.recursive_get(first(t.lleaves)[2].data.dat, seqkey)
+	if ismissing(variable_positions)
+		variable_positions = 1:length(seq)
+	elseif isempty(variable_positions)
+		variable_positions = get_variable_positions(t, seqkey)
+	end
+
+	# Algorithm
+	for i in variable_positions
+		init_fitchstates!(t, i, seqkey, fitchkey)
+		fitch_up!(t, fitchkey)
+		fitch_remove_gaps!(t, fitchkey)
+		fitch_root_state!(t, fitchkey)
+		fitch_down!(t, fitchkey)
+		fitch_remove_gaps!(t, fitchkey)
+		fitch_sample_state!(t, fitchkey)
+		fitch_get_mutations!(t, i, outkey, fitchkey)
+	end
+	# Clearing fitch states
+	if clear_fitch_states
+		for n in values(t.lnodes)
+			delete!(n.data.dat, :fitchstate)
+		end
+	end
+end
+
+"""
 	fitch!(t::Tree, outkey=:ancestral_seq, seqkey=:seq; clear_fitch_states=true, variable_positions=missing)
 """
 function fitch!(t::Tree, outkey=:seq, seqkey=:seq; clear_fitch_states=true, variable_positions=Int64[])
@@ -32,7 +68,7 @@ function fitch!(t::Tree, outkey=:seq, seqkey=:seq; clear_fitch_states=true, vari
 			fitch_root_state!(t, fitchkey)
 			fitch_down!(t, fitchkey)
 			fitch_remove_gaps!(t, fitchkey)
-			fitch_sample!(t, outkey, fitchkey)
+			fitch_sample_sequence!(t, outkey, fitchkey)
 		else
 			for n in values(t.lnodes)
 				if !n.isleaf
@@ -175,16 +211,22 @@ function fitch_remove_gaps!(t, fitchkey=:fitchstate)
 	end
 end
 
+function fitch_sample_state!(t::Tree, fitchkey=:fitchstate)
+	for n in internals(t)
+		n.data.dat[fitchkey] = FitchState(rand(n.data.dat[fitchkey].state))
+	end
+end
+
 """
 """
-function fitch_sample!(t::Tree, outkey::Tuple, fitchkey=:fitchstate)
+function fitch_sample_sequence!(t::Tree, outkey::Tuple, fitchkey=:fitchstate)
 	for n in values(t.lnodes)
 		if !n.isleaf
 			TreeTools.recursive_push!(n.data.dat, rand(n.data.dat[fitchkey].state), outkey...)
 		end
 	end
 end
-function fitch_sample!(t::Tree, outkey::Union{Symbol, AbstractString}, fitchkey=:fitchstate)
+function fitch_sample_sequence!(t::Tree, outkey::Union{Symbol, AbstractString}, fitchkey=:fitchstate)
 	for n in values(t.lnodes)
 		if !n.isleaf
 			push!(n.data.dat[outkey], rand(n.data.dat[fitchkey].state))
@@ -195,3 +237,15 @@ fitch_sample(fs::FitchState{DNA}) = LongDNASeq([rand(s) for s in fs.state])
 fitch_sample(fs::FitchState{RNA}) = LongRNASeq([rand(s) for s in fs.state])
 fitch_sample(fs::FitchState{AminoAcid}) = LongAminoAcidSeq([rand(s) for s in fs.state])
 fitch_sample(fs::FitchState{Char}) = LongCharSeq([rand(s) for s in fs.state])
+
+function fitch_get_mutations!(t::Tree, i::Integer, outkey, fitchkey)
+	for n in Iterators.filter(n->!n.isroot, nodes(t))
+		fitch_get_mutations!(n, i, outkey, fitchkey)
+	end
+end
+function fitch_get_mutations!(n::TreeNode, i::Integer, outkey, fitchkey)
+	if first(n.anc.data.dat[fitchkey].state) != first(n.data.dat[fitchkey].state) && 
+		!isgap(first(n.anc.data.dat[fitchkey].state)) && !isgap(first(n.data.dat[fitchkey].state))
+		TreeTools.recursive_push!(n.data.dat, Mutation(i, first(n.anc.data.dat[fitchkey].state), first(n.data.dat[fitchkey].state)), outkey)
+	end
+end
