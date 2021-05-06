@@ -1,13 +1,12 @@
 module Fitch
 
-using TreeTools
 using BioSequences
+using TreeTools
 
-import Base.isempty, Base.length, Base.intersect!, Base.union!
+export fitch!
 
 include("main.jl")
 include("tools.jl")
 
-export fitch!
 
 end

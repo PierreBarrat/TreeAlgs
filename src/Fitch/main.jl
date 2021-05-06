@@ -3,8 +3,8 @@ struct FitchState{T}
 end
 FitchState(::Val{T}) where T  = FitchState{T}(Set{T}())
 FitchState(a::T) where T = FitchState{T}(Set(a))
-isempty(fs::FitchState) = isempty(fs.state)
-length(s::FitchState) = length(s.state)
+Base.isempty(fs::FitchState) = isempty(fs.state)
+Base.length(s::FitchState) = length(s.state)
 
 
 """
