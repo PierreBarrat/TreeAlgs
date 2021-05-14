@@ -1,4 +1,7 @@
-function evolve!(t::Tree, L::Int64, μ=1., model = JC69(1.), seqkey=:seq)
+"""
+	evolve!(t::Tree, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
+"""
+function evolve!(t::Tree, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
 	t.root.data.dat[seqkey] = randseq(DNAAlphabet{4}(), L)
 	for c in t.root.child
 		evolve!(c, model, μ, seqkey)
@@ -25,7 +28,7 @@ function evolve!(seq, w)
 	 		elseif nt == DNA_C
 	 			if newnt == 2; seq[i] = DNA_G
 	 			elseif newnt == 3; seq[i] = DNA_T
-	 			elseif newnt == 4; seq[i] = DNA_A; end	 			
+	 			elseif newnt == 4; seq[i] = DNA_A; end
 	 		elseif nt == DNA_G
 	 			if newnt == 2; seq[i] = DNA_T
 	 			elseif newnt == 3; seq[i] = DNA_A
