@@ -3,7 +3,7 @@
 	max_compatibility_splits(aln, labels)
 	max_compatibility_splits(aln)
 
-Splits of sequences that are compatible with the highest number of columns. A set of splits is compatible with a column of an alignment if the corresponding character can evolve without homoplasy (several mutations) on the tree defined by the splits. 
+Splits of sequences that are compatible with the highest number of columns. A set of splits is compatible with a column of an alignment if the corresponding character can evolve without homoplasy (several mutations) on the tree defined by the splits.
 """
 function max_compatibility_splits(tab::CharTable)
 	if !isempty(tab.dat)
@@ -21,7 +21,10 @@ function tree_popping(tab::CharTable, sites)
 	sp = sortperm(tab.labels)
 	S = TreeTools.SplitList(tab.labels[sp])
 	for i in sites
-		push!(S.splits, get_split(tab.dat, i, sp))
+		s = get_split(tab.dat, i, sp)
+		if !in(s, S.splits)
+			push!(S.splits, s)
+		end
 	end
 	sort!(S.splits, by=x->x.dat)
 	return S

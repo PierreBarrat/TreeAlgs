@@ -2,17 +2,17 @@
 	CharTable(dat, labels=collect(1:size(dat,2)))
 
 
-Representation of a binary alignment with sequence labels. 
+Representation of a binary alignment with sequence labels.
 ```
-	CharTable{T} 
+	CharTable{T}
 dat::Array{Bool,2}
 labels::Array{T,1}
 ```
 """
-struct CharTable{T} 
+struct CharTable{T}
 	dat::Array{Bool,2}
 	labels::Array{T,1}
-	CharTable(dat, labels::Array{T,1}) where T = (length(labels) != size(dat, 1) ? error("Number of sequences ($(size(dat,1))) and labels ($(length(labels))) differ") : new{T}(unique(dat, dims=2), labels))
+	CharTable(dat, labels::Array{T,1}) where T = (length(labels) != size(dat, 1) ? error("Number of sequences ($(size(dat,1))) and labels ($(length(labels))) differ") : new{T}(dat, labels)) #(unique(dat, dims=2), labels))
 end
 
 function CharTable(aln)
