@@ -2,14 +2,14 @@ struct FitchState{T}
 	state::Set{T}
 end
 FitchState(::Val{T}) where T  = FitchState{T}(Set{T}())
-FitchState(a::T) where T = FitchState{T}(Set(a))
+FitchState(a::T) where T<:BioSymbol = FitchState(Set(a))
 Base.isempty(fs::FitchState) = isempty(fs.state)
 Base.length(s::FitchState) = length(s.state)
 
 
 """
 """
-function fitch_mutations!(t::Tree, outkey=:muts, seqkey=:seq; clear_fitch_states=true, variable_positions=Int64[])
+function fitch_mutations!(t::Tree, outkey=:muts, seqkey=:seq; clear_fitch_states=true, variable_positions=Int[])
 	fitchkey = :fitchstate
 	# Init containers for mutations
 	for n in nodes(t)
@@ -27,7 +27,7 @@ function fitch_mutations!(t::Tree, outkey=:muts, seqkey=:seq; clear_fitch_states
 	# Algorithm
 	for i in variable_positions
 		init_fitchstates!(t, i, seqkey, fitchkey)
-		fitch_up!(t, fitchkey)
+		fitch_mutationsp!(t, fitchkey)
 		fitch_remove_gaps!(t, fitchkey)
 		fitch_root_state!(t, fitchkey)
 		fitch_down!(t, fitchkey)
@@ -46,7 +46,7 @@ end
 """
 	fitch!(t::Tree, outkey=:ancestral_seq, seqkey=:seq; clear_fitch_states=true, variable_positions=missing)
 """
-function fitch!(t::Tree, outkey=:seq, seqkey=:seq; clear_fitch_states=true, variable_positions=Int64[])
+function fitch!(t::Tree, outkey=:seq, seqkey=:seq; clear_fitch_states=true, variable_positions=Int[])
 	fitchkey = :fitchstate
 	# Initializing ancestral sequences
 	seq = TreeTools.recursive_get(first(t.lleaves)[2].data.dat, seqkey)
@@ -102,19 +102,20 @@ function init_ancestral_sequences!(t, outkey::Tuple, seq)
 end
 
 """
-	init_fitchstates!(t::Tree, i::Int64, seqkey = :seq, fitchkey=:fitchstate)
+	init_fitchstates!(t::Tree, i::Int, seqkey = :seq, fitchkey=:fitchstate)
 """
-function init_fitchstates!(t::Tree, i::Int64, seqkey::Union{Symbol, AbstractString}=:seq, fitchkey=:fitchstate)
+function init_fitchstates!(t::Tree, i::Int, seqkey::Union{Symbol, AbstractString}=:seq, fitchkey=:fitchstate)
 	for n in values(t.lleaves)
-		n.data.dat[fitchkey] = FitchState(n.data.dat[seqkey][i])
+		n.data.dat[fitchkey] = FitchState(Set(n.data.dat[seqkey][i]))
 	end
+	return nothing
 end
-function init_fitchstates!(t::Tree, i::Int64, seqkey::Tuple, fitchkey=:fitchstate)
+function init_fitchstates!(t::Tree, i::Int, seqkey::Tuple, fitchkey=:fitchstate)
 	for n in values(t.lleaves)
-		n.data.dat[fitchkey] = FitchState(TreeTools.recursive_get(n.data.dat, seqkey...)[i])
+		n.data.dat[fitchkey] = FitchState(Set(TreeTools.recursive_get(n.data.dat, seqkey...)[i]))
 	end
+	return nothing
 end
-
 """
 	ancestral_state(fstates::Vararg{FitchState{T}}) where T
 """
@@ -156,8 +157,8 @@ fitch_up!(t::Tree, fitchkey=:fitchstate) = fitch_up!(t.root, fitchkey)
 function fitch_root_state!(t::Tree, fitchkey=:fitchstate)
 	fs = t.root.data.dat[fitchkey]
 	L = Dict{Any,Float64}()
-	# Compute likelihood of each possible state 
-	for (k,a) in enumerate(fs.state) 
+	# Compute likelihood of each possible state
+	for (k,a) in enumerate(fs.state)
 		for c in t.root.child
 			if !ismissing(c.data.tau)
 				!haskey(L,a) && (L[a] = 0.)
@@ -244,7 +245,7 @@ function fitch_get_mutations!(t::Tree, i::Integer, outkey, fitchkey)
 	end
 end
 function fitch_get_mutations!(n::TreeNode, i::Integer, outkey, fitchkey)
-	if first(n.anc.data.dat[fitchkey].state) != first(n.data.dat[fitchkey].state) && 
+	if first(n.anc.data.dat[fitchkey].state) != first(n.data.dat[fitchkey].state) &&
 		!isgap(first(n.anc.data.dat[fitchkey].state)) && !isgap(first(n.data.dat[fitchkey].state))
 		TreeTools.recursive_push!(n.data.dat, Mutation(i, first(n.anc.data.dat[fitchkey].state), first(n.data.dat[fitchkey].state)), outkey)
 	end

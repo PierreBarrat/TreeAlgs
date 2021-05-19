@@ -1,6 +1,7 @@
 module Fitch
 
 using BioSequences
+using BioSymbols
 using TreeTools
 
 export fitch!
