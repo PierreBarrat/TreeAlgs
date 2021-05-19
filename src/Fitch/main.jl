@@ -11,6 +11,7 @@ Base.length(s::FitchState) = length(s.state)
 """
 function fitch_mutations!(t::Tree, outkey=:muts, seqkey=:seq; clear_fitch_states=true, variable_positions=Int[])
 	fitchkey = :fitchstate
+	println(seqkey)
 	# Init containers for mutations
 	for n in nodes(t)
 		TreeTools.recursive_set!(n.data.dat, Array{Mutation,1}(undef, 0), outkey)
@@ -27,7 +28,7 @@ function fitch_mutations!(t::Tree, outkey=:muts, seqkey=:seq; clear_fitch_states
 	# Algorithm
 	for i in variable_positions
 		init_fitchstates!(t, i, seqkey, fitchkey)
-		fitch_mutationsp!(t, fitchkey)
+		fitch_mutations!(t, fitchkey)
 		fitch_remove_gaps!(t, fitchkey)
 		fitch_root_state!(t, fitchkey)
 		fitch_down!(t, fitchkey)
