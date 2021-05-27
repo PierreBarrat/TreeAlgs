@@ -10,7 +10,7 @@ nwk = "((A:2,B:2)AB:2,(C:2,D:2)CD:2)ABCD"
 @testset "LBI" begin
 	t1 = copy(node2tree(TreeTools.parse_newick(nwk)), LBIData)
 	lbi!(t1, τ; normalize = false)
-	e = exp(-t1.lnodes["A"].data.tau/τ)
+	e = exp(-t1.lnodes["A"].tau/τ)
 	@test isapprox(t1.lnodes["ABCD"].data.lbi, 2τ*((1-e) + 2e*(1-e)), rtol=0.1 )
 	t1.lnodes["A"].data.alive = false
 	@test isapprox(t1.lnodes["ABCD"].data.lbi, 2τ*((1-e) + 3/2*e*(1-e)), rtol=0.1 )

@@ -160,13 +160,13 @@ function fitch_root_state!(t::Tree, fitchkey=:fitchstate)
 	# Compute likelihood of each possible state
 	for (k,a) in enumerate(fs.state)
 		for c in t.root.child
-			if !ismissing(c.data.tau)
+			if !ismissing(c.tau)
 				!haskey(L,a) && (L[a] = 0.)
 				if isempty(intersect([a], c.data.dat[fitchkey].state))
 					# Mutation needed
-					L[a] += 1 - exp(-c.data.tau)
+					L[a] += 1 - exp(-c.tau)
 				else
-					L[a] += exp(-c.data.tau)
+					L[a] += exp(-c.tau)
 				end
 			end
 		end

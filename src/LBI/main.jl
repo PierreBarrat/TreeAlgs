@@ -60,7 +60,7 @@ end
 """
 	get_message_up!(n::TreeNode{LBIData}, τ)
 
-Get message going up from node `n`. Ask for up messages `m_c` for all children `c` of `n`. Return `exp(-t/τ) * sum(m_c) + τ * (1 - exp(-t/τ)` where `t=n.data.tau`. Field `message_up` in `n`'s data is modified.
+Get message going up from node `n`. Ask for up messages `m_c` for all children `c` of `n`. Return `exp(-t/τ) * sum(m_c) + τ * (1 - exp(-t/τ)` where `t=n.tau`. Field `message_up` in `n`'s data is modified.
 """
 function get_message_up!(n::TreeNode{LBIData}, τ::Float64)
 	n.data.message_up = 0.
@@ -69,9 +69,9 @@ function get_message_up!(n::TreeNode{LBIData}, τ::Float64)
 		n.data.message_up += get_message_up!(c, τ)
 	end
 	if !n.isroot
-		n.data.message_up *= exp(-n.data.tau/τ)
+		n.data.message_up *= exp(-n.tau/τ)
 		if n.data.alive
-			(n.data.message_up += τ*(1 - exp(-n.data.tau/τ)))
+			(n.data.message_up += τ*(1 - exp(-n.tau/τ)))
 		end
 	end
 	return n.data.message_up
@@ -93,9 +93,9 @@ function send_message_down!(n::TreeNode{LBIData}, τ::Float64)
 				c1.data.message_down += c2.data.message_up
 			end
 		end
-		c1.data.message_down *= exp(-c1.data.tau/τ)
+		c1.data.message_down *= exp(-c1.tau/τ)
 		if c1.data.alive
-			c1.data.message_down += τ*(1 - exp(-c1.data.tau/τ))
+			c1.data.message_down += τ*(1 - exp(-c1.tau/τ))
 		end
 		send_message_down!(c1,τ)
 	end
