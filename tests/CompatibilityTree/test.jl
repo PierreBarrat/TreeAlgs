@@ -52,8 +52,8 @@ sort!(Sref.splits, by=x->x.dat)
 
 @testset "Felsenstein example (p93)" begin
 	@test CompatibilityTree._compatibility_graph(Array{Bool,2}(dat')) == gref1
-	@test CompatibilityTree.compatibility_graph(dat) == gref2
-	@test CompatibilityTree.compatibility_graph(tab) == gref2
+	@test CompatibilityTree.compatibility_graph(dat) == gref1
+	@test CompatibilityTree.compatibility_graph(tab) == gref1
 	@test max_compatibility_splits(tab) == Sref
 end
 
