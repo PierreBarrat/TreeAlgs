@@ -43,6 +43,21 @@ parse_mutation(mut::AbstractString, T) = parse_mutation(mut, Val(T))
 parse_mutation(mut::Mutation) = mut
 
 
+
+function mutations_from_sequences!(t::Tree{MiscData}; seqkey=:seq, mutkey=:muts)
+	t.root.data[mutkey] = []
+	for n in Iterators.filter(!isroot, nodes(t))
+		n.data[mutkey] = []
+		for (i, a) in enumerate(n.data[seqkey])
+			if a != n.anc.data[seqkey][i]
+				push!(n.data[mutkey], Mutation(i, n.anc.data[seqkey][i], a))
+			end
+		end
+	end
+
+	return nothing
+end
+
 function compute_mutations!(f::Function, n::TreeNode, outkey, T=eltype(f(n));
 	ignore_gaps=true
 )
@@ -74,5 +89,3 @@ function compute_mutations!(f::Function, t::Tree{TreeTools.MiscData}, outkey)
 		compute_mutations!(f, n, outkey)
 	end
 end
-
-
