@@ -17,27 +17,57 @@ function evolve!(n::TreeNode, model, μ, seqkey=:seq)
 	end
 end
 
-function evolve!(seq, w)
-	for (i,nt) in enumerate(seq)
-	 	newnt = sample(1:4, w)
-	 	if newnt  != 1
-	 		if nt == DNA_A
-	 			if newnt == 2; seq[i] = DNA_C
-	 			elseif newnt == 3; seq[i] = DNA_G
-	 			elseif newnt == 4; seq[i] = DNA_T; end
-	 		elseif nt == DNA_C
-	 			if newnt == 2; seq[i] = DNA_G
-	 			elseif newnt == 3; seq[i] = DNA_T
-	 			elseif newnt == 4; seq[i] = DNA_A; end
-	 		elseif nt == DNA_G
-	 			if newnt == 2; seq[i] = DNA_T
-	 			elseif newnt == 3; seq[i] = DNA_A
-	 			elseif newnt == 4; seq[i] = DNA_C; end
-	 		elseif nt == DNA_T
-	 			if newnt == 2; seq[i] = DNA_A
-	 			elseif newnt == 3; seq[i] = DNA_C
-	 			elseif newnt == 4; seq[i] = DNA_G; end
-	 		end
-		end
+function evolve!(seq::NucSeq{4, DNAAlphabet{4}}, Q)
+	Qt = Q'
+	for (i, nt) in enumerate(seq)
+		seq[i] = evolve(nt, Qt)
 	end
+	return nothing
+end
+
+	# for (i,nt) in enumerate(seq)
+	#  	newnt = sample(1:4, w)
+	#  	if newnt  != 1
+	#  		if nt == DNA_A
+	#  			if newnt == 2; seq[i] = DNA_C
+	#  			elseif newnt == 3; seq[i] = DNA_G
+	#  			elseif newnt == 4; seq[i] = DNA_T; end
+	#  		elseif nt == DNA_C
+	#  			if newnt == 2; seq[i] = DNA_G
+	#  			elseif newnt == 3; seq[i] = DNA_T
+	#  			elseif newnt == 4; seq[i] = DNA_A; end
+	#  		elseif nt == DNA_G
+	#  			if newnt == 2; seq[i] = DNA_T
+	#  			elseif newnt == 3; seq[i] = DNA_A
+	#  			elseif newnt == 4; seq[i] = DNA_C; end
+	#  		elseif nt == DNA_T
+	#  			if newnt == 2; seq[i] = DNA_A
+	#  			elseif newnt == 3; seq[i] = DNA_C
+	#  			elseif newnt == 4; seq[i] = DNA_G; end
+	#  		end
+	# 	end
+	# end
+function evolve(nt::DNA, Qt)
+	nts = [DNA_A, DNA_C, DNA_G, DNA_T]
+	if !in(nt, nts)
+		return nt
+	else
+		s = onehot(nt)
+		w = Qt * s
+		return sample(nts, ProbabilityWeights(w))
+	end
+end
+
+function onehot(c::DNA)
+	s = Int8[0, 0, 0, 0]
+	if c == DNA_A
+		s[1] = 1
+	elseif c == DNA_C
+		s[2] = 1
+	elseif c == DNA_G
+		s[3] = 1
+	elseif c == DNA_T
+		s[4] = 1
+	end
+	return s
 end
