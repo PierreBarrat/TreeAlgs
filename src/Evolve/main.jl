@@ -25,28 +25,6 @@ function evolve!(seq::NucSeq{4, DNAAlphabet{4}}, Q)
 	return nothing
 end
 
-	# for (i,nt) in enumerate(seq)
-	#  	newnt = sample(1:4, w)
-	#  	if newnt  != 1
-	#  		if nt == DNA_A
-	#  			if newnt == 2; seq[i] = DNA_C
-	#  			elseif newnt == 3; seq[i] = DNA_G
-	#  			elseif newnt == 4; seq[i] = DNA_T; end
-	#  		elseif nt == DNA_C
-	#  			if newnt == 2; seq[i] = DNA_G
-	#  			elseif newnt == 3; seq[i] = DNA_T
-	#  			elseif newnt == 4; seq[i] = DNA_A; end
-	#  		elseif nt == DNA_G
-	#  			if newnt == 2; seq[i] = DNA_T
-	#  			elseif newnt == 3; seq[i] = DNA_A
-	#  			elseif newnt == 4; seq[i] = DNA_C; end
-	#  		elseif nt == DNA_T
-	#  			if newnt == 2; seq[i] = DNA_A
-	#  			elseif newnt == 3; seq[i] = DNA_C
-	#  			elseif newnt == 4; seq[i] = DNA_G; end
-	#  		end
-	# 	end
-	# end
 function evolve(nt::DNA, Qt)
 	nts = [DNA_A, DNA_C, DNA_G, DNA_T]
 	if !in(nt, nts)
