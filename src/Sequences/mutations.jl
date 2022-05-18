@@ -43,7 +43,9 @@ parse_mutation(mut::AbstractString, T) = parse_mutation(mut, Val(T))
 parse_mutation(mut::Mutation) = mut
 
 
-
+"""
+	mutations_from_sequences!(t::Tree{MiscData}; seqkey=:seq, mutkey=:muts)
+"""
 function mutations_from_sequences!(t::Tree{MiscData}; seqkey=:seq, mutkey=:muts)
 	t.root.data[mutkey] = []
 	for n in Iterators.filter(!isroot, nodes(t))
@@ -56,36 +58,4 @@ function mutations_from_sequences!(t::Tree{MiscData}; seqkey=:seq, mutkey=:muts)
 	end
 
 	return nothing
-end
-
-function compute_mutations!(f::Function, n::TreeNode, outkey, T=eltype(f(n));
-	ignore_gaps=true
-)
-	TreeTools.recursive_set!(n.data.dat, Array{Mutation,1}(undef, 0), outkey)
-	n.isroot && return nothing
-	for (i,a) in enumerate(f(n))
-		if a != f(n.anc)[i] && (!ignore_gaps || (!isgap(a) && !isgap(f(n.anc)[i])))
-			TreeTools.recursive_push!(n.data.dat, Mutation{T}(i, f(n.anc)[i], a), outkey)
-		end
-	end
-	nothing
-end
-
-"""
-	compute_mutations!(f::Function, t::Tree{TreeTools.MiscData}, outkey, T)
-	compute_mutations!(f::Function, t::Tree{TreeTools.MiscData}, outkey)
-
-Compute mutations on each branch of `t`. Store result at `n.data.dat[outkey]`
-For each `TreeNode` `n`, sequence is accessed by calling `f(n)`.
-`T` defines the type of `Mutation{T}`.
-"""
-function compute_mutations!(f::Function, t::Tree{TreeTools.MiscData}, outkey, T)
-	for n in values(t.lnodes)
-		compute_mutations!(f, n, outkey, T)
-	end
-end
-function compute_mutations!(f::Function, t::Tree{TreeTools.MiscData}, outkey)
-	for n in values(t.lnodes)
-		compute_mutations!(f, n, outkey)
-	end
 end
