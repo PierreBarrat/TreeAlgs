@@ -86,6 +86,7 @@ function onehot(c::DNA)
 	end
 	return s
 end
+
 """
 	write_seq2fasta(t::Tree, fasta_name::String, output_dir::String, seqkey=:seq; only_terminals=false, remove_0_mutations=true)
 
@@ -94,7 +95,7 @@ end
 """
 function write_seq2fasta(t::Tree, fasta_name::String, output_dir::String, seqkey=:seq; only_terminals=false, remove_0_mutations=true)
 	mkpath(output_dir)
-	open(FASTA.Writer, output_dir * "sequences" *fasta_name* ".fasta") do w
+	open(FASTA.Writer, output_dir *"/"*fasta_name* ".fasta") do w
 		if only_terminals
 			iter = POTleaves(t)
 		else
