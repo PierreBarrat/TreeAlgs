@@ -51,6 +51,40 @@ function evolve_seq!(n::TreeNode, w, seqkey=:seq)
 	 		end
 		end
 	end
+	return nothing
+end
+
+function evolve!(seq::NucSeq{4, DNAAlphabet{4}}, Q)
+	Qt = Q'
+	for (i, nt) in enumerate(seq)
+		seq[i] = evolve(nt, Qt)
+	end
+	return nothing
+end
+
+function evolve(nt::DNA, Qt)
+	nts = [DNA_A, DNA_C, DNA_G, DNA_T]
+	if !in(nt, nts)
+		return nt
+	else
+		s = onehot(nt)
+		w = Qt * s
+		return sample(nts, ProbabilityWeights(w))
+	end
+end
+
+function onehot(c::DNA)
+	s = Int8[0, 0, 0, 0]
+	if c == DNA_A
+		s[1] = 1
+	elseif c == DNA_C
+		s[2] = 1
+	elseif c == DNA_G
+		s[3] = 1
+	elseif c == DNA_T
+		s[4] = 1
+	end
+	return s
 end
 """
 	write_seq2fasta(t::Tree, fasta_name::String, output_dir::String, seqkey=:seq; only_terminals=false, remove_0_mutations=true)

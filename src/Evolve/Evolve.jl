@@ -11,6 +11,5 @@ export compute_mutations!
 export write_seq2fasta
 
 include("main.jl")
-include("mutations.jl")
 
 end
