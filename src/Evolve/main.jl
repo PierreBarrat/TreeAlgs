@@ -93,7 +93,8 @@ end
 	write evolved sequences to a fasta file with name `fasta_name`, `only_terminals` specifies if only terminal sequences should be 
 	written to the file and `remove_0_mutations` if only sequences with mutations on their branches should be written to the file. 
 """
-function write_seq2fasta(t::Tree, fasta_name::String, output_dir::String, seqkey=:seq; only_terminals=false, remove_0_mutations=true)
+function write_seq2fasta(t::Tree, fasta_name::String, output_dir::String, seqkey=:seq; 
+	only_terminals=false, remove_0_mutations=true, write_date=false, year_rate=4.73e-3)
 	mkpath(output_dir)
 	open(FASTA.Writer, output_dir *"/"*fasta_name* ".fasta") do w
 		if only_terminals
@@ -106,7 +107,14 @@ function write_seq2fasta(t::Tree, fasta_name::String, output_dir::String, seqkey
 				continue
 			else
 				x = node.data.dat[seqkey]
-				rec = FASTA.Record(node.label, x)
+				if write_date
+					start_date = Date(2000,1,1)
+					dist = TreeTools.distance(node, t.root)/year_rate
+					date = start_date+Dates.Year(round(dist)) + Dates.Day(round((dist-round(dist))/365))
+					rec = FASTA.Record(node.label*"|"*string(date), x)
+				else
+					rec = FASTA.Record(node.label, x)
+				end
 				write(w, rec)
 			end
 		end
