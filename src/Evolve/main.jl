@@ -1,16 +1,20 @@
 """
-	evolve!(t::Tree, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
+	evolve!(t::Tree{TreeTools.MiscData}, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
+
+Evolve DNA sequences of length `L` along the branches of `t` using `model`.
+The sequence at the root is random: `randseq(DNAAlphabet{4}(), L)`.
+For each node `n` of `t`, the sequence is stored in `n.data[seqkey]`.
 """
-function evolve!(t::Tree, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
-	t.root.data.dat[seqkey] = randseq(DNAAlphabet{4}(), L)
+function evolve!(t::Tree{TreeTools.MiscData}, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
+	t.root.data[seqkey] = randseq(DNAAlphabet{4}(), L)
 	for c in t.root.child
 		evolve!(c, model, μ, seqkey)
 	end
 end
 
-function evolve!(n::TreeNode, model, μ, seqkey=:seq)
-	w = ProbabilityWeights(SubstitutionModels.P(model, μ * n.tau)[:,1], 1.)
-	n.data.dat[seqkey] = deepcopy(n.anc.data.dat[seqkey])
+function evolve!(n::TreeNode{TreeTools.MiscData}, model, μ::Real, seqkey=:seq)
+	w = ProbabilityWeights(SubstitutionModels.P(model, μ * branch_length(n))[:,1], 1.)
+	n.data[seqkey] = deepcopy(n.anc.data.dat[seqkey])
 	evolve!(n.data.dat[seqkey], w)
 	for c in n.child
 		evolve!(c, model, μ, seqkey)
