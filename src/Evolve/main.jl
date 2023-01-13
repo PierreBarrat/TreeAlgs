@@ -13,9 +13,10 @@ function evolve!(t::Tree{TreeTools.MiscData}, L::Int, μ=1.; model = JC69(1.), s
 end
 
 function evolve!(n::TreeNode{TreeTools.MiscData}, model, μ::Real, seqkey=:seq)
-	w = ProbabilityWeights(SubstitutionModels.P(model, μ * branch_length(n))[:,1], 1.)
+	# w = ProbabilityWeights(SubstitutionModels.P(model, μ * branch_length(n))[:,1], 1.)
+	Q = SubstitutionModels.P(model, μ * branch_length(n))
 	n.data[seqkey] = deepcopy(n.anc.data.dat[seqkey])
-	evolve!(n.data.dat[seqkey], w)
+	evolve!(n.data.dat[seqkey], Q)
 	for c in n.child
 		evolve!(c, model, μ, seqkey)
 	end
