@@ -42,13 +42,20 @@ end
 """
 function write_fasta(
 	file::AbstractString, tree, seqkey = :seq;
-	internal = false, root=false, sorted=true,
+	internal = false, root=false, sorted=true, write_date=false, year_rate=4.73e-3
 )
 	open(FASTA.Writer, file) do f
 		nodes_iter = sorted ? sort(collect(nodes(tree)), by = x->x.label) : nodes(tree)
 		for n in nodes_iter
 			if internal || (root && n.isroot) || n.isleaf
-				rec = FASTA.Record(n.label, n.data[seqkey])
+				if write_date
+					start_date = Date(2000,1,1)
+					dist = TreeTools.distance(node, t.root)/year_rate
+					date = start_date+Dates.Year(round(dist)) + Dates.Day(round((dist-round(dist))/365))
+					rec = FASTA.Record(node.label*"|"*string(date), n.data[seqkey])
+				else
+					rec = FASTA.Record(n.label, n.data[seqkey])
+				end
 				write(f, rec)
 			end
 		end

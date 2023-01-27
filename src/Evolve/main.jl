@@ -7,6 +7,7 @@ For each node `n` of `t`, the sequence is stored in `n.data[seqkey]`.
 """
 function evolve!(t::Tree{TreeTools.MiscData}, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
 	t.root.data[seqkey] = randseq(DNAAlphabet{4}(), L)
+	t.root.data.dat["evolved"] = false
 	for c in t.root.child
 		evolve!(c, model, μ, seqkey)
 	end
@@ -21,10 +22,13 @@ function evolve!(n::TreeNode{TreeTools.MiscData}, model, μ::Real, seqkey=:seq)
 	end
 end
 
-function evolve!(seq::NucSeq{4, DNAAlphabet{4}}, Q)
+function evolve!(n::TreeNode{TreeTools.MiscData}, Q)
 	Qt = Q'
+	seq = n.data.dat[seqkey]
+	n.data.dat["evolved"]= false
 	for (i, nt) in enumerate(seq)
 		seq[i] = evolve(nt, Qt)
+		seq[i]=!nt && (n.data.dat["evolved"]=true) ##check if sequence has changed
 	end
 	return nothing
 end
