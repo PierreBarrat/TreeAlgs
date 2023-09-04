@@ -2,11 +2,18 @@
 	evolve!(t::Tree{TreeTools.MiscData}, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
 
 Evolve DNA sequences of length `L` along the branches of `t` using `model`.
-The sequence at the root is random: `randseq(DNAAlphabet{4}(), L)`.
+`model` must come from the `SubstitutionModels` package.
+The sequence at the root is sampled randomly from the equilibrium probabilities of `model`.
 For each node `n` of `t`, the sequence is stored in `n.data[seqkey]`.
 """
 function evolve!(t::Tree{TreeTools.MiscData}, L::Int, μ=1.; model = JC69(1.), seqkey=:seq)
-	t.root.data[seqkey] = randseq(DNAAlphabet{4}(), L)
+    # Sampling root
+	t.root.data[seqkey] =  @chain begin
+       SubstitutionModels._π(model)
+       SamplerWeighted(dna"ACGT", _[1:end-1])
+       randseq(DNAAlphabet{4}(), _, L)
+    end
+    #
 	for c in t.root.child
 		evolve!(c, model, μ, seqkey)
 	end

@@ -1,6 +1,7 @@
 module Evolve
 
 using BioSequences
+using Chain
 using StatsBase
 using SubstitutionModels
 using TreeTools
