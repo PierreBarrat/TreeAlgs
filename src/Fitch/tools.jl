@@ -1,41 +1,37 @@
-_alphabet(s::LongSequence{T}) where T = BioSequences.symbols(T())
-function get_variable_positions(t::Tree, seqkey)
-	L = length(TreeTools.recursive_get(first(t.lleaves)[2].data.dat, seqkey))
-	keep = _alphabet(TreeTools.recursive_get(first(t.lleaves)[2].data.dat, seqkey))
-	#
-	variable = Int64[]
-	fixed = collect(1:L)
-	state = Array{Any,1}(missing, L)
-	# 
-	for n in values(t.lleaves)
-		seq = TreeTools.recursive_get(n.data.dat, seqkey)
-	    todel = Int64[]
-	    for i in fixed
-	    	if ismissing(state[i]) && !isgap(seq[i]) && in(seq[i], keep) 
-	    	# If state not initialized for i, initialize
-	    		state[i] = seq[i]
-	    	elseif !ismissing(state[i]) && seq[i] != state[i] && !isgap(seq[i]) &&in(seq[i], keep) 
-	    	# If state was initialized and changed, this is a variable column
-	    		push!(variable, i)
-	    		push!(todel, i)
-	    	end
-	    end	
-	    # Deleting variable positions from fixed
-	    for i in todel
-	    	deleteat!(fixed, findfirst(==(i), fixed))
-	    end
-	end
-	return sort(variable)
-end
+function fasta_to_tree(
+    tree::Tree, fastafile::AbstractString;
+)
+    all_headers_in_tree = true
+    all_leaves_in_fasta = true
 
-_in(x) = y -> in(y, x)
-function intersect!(aFs::FitchState, fstates::Vararg{FitchState})
-	for fs in fstates
-		filter!(_in(fs.state), aFs.state)
-	end
-end
-function union!(aFs::FitchState, fs::FitchState)
-	for a in Iterators.filter(!_in(aFs.state), fs.state)
-		push!(aFs.state,a)
-	end
+    # get sequence type and copy tree with the appropriate data type
+    tc = open(FASTA.Reader, fastafile) do reader
+        data = first(reader) |> sequence |> FitchData
+        tc = convert(Tree{typeof(data)}, tree)
+    end
+
+    #
+    record = FASTA.Record()
+    open(FASTA.Reader, fastafile) do reader
+        while !eof(reader)
+            read!(reader, record)
+            if in(identifier(record), tc)
+                tc[identifier(record)].data = FitchData(sequence(record))
+            else
+                all_headers_in_tree = false
+            end
+        end
+    end
+
+    for n in leaves(tc)
+        if isempty(n.data.observed_sequence)
+            all_leaves_in_fasta = false
+            break
+        end
+    end
+    !all_leaves_in_fasta && @warn "Not all leaves had a corresponding sequence \
+    #     in the alignment (file: $fastafile)."
+    !all_headers_in_tree && @warn "Some sequence headers in the alignment are \
+    #     not found in the tree (file: $fastafile)."
+    return nothing
 end
