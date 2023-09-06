@@ -1,252 +1,197 @@
-struct FitchState{T}
-	state::Set{T}
-end
-FitchState(::Val{T}) where T  = FitchState{T}(Set{T}())
-FitchState(a::T) where T<:BioSymbol = FitchState(Set(a))
-Base.isempty(fs::FitchState) = isempty(fs.state)
-Base.length(s::FitchState) = length(s.state)
-
-
-"""
-"""
-function fitch_mutations!(t::Tree, outkey=:muts, seqkey=:seq; clear_fitch_states=true, variable_positions=Int[])
-	fitchkey = :fitchstate
-	# Init containers for mutations
-	for n in nodes(t)
-		TreeTools.recursive_set!(n.data.dat, Array{Mutation,1}(undef, 0), outkey)
-	end
-
-	#Getting variable positions
-	seq = TreeTools.recursive_get(first(t.lleaves)[2].data.dat, seqkey)
-	if ismissing(variable_positions)
-		variable_positions = 1:length(seq)
-	elseif isempty(variable_positions)
-		variable_positions = get_variable_positions(t, seqkey)
-	end
-
-	# Algorithm
-	for i in variable_positions
-		init_fitchstates!(t, i, seqkey, fitchkey)
-		fitch_up!(t, fitchkey)
-		fitch_remove_gaps!(t, fitchkey)
-		fitch_root_state!(t, fitchkey)
-		fitch_down!(t, fitchkey)
-		fitch_remove_gaps!(t, fitchkey)
-		fitch_sample_state!(t, fitchkey)
-		fitch_get_mutations!(t, i, outkey, fitchkey)
-	end
-	# Clearing fitch states
-	if clear_fitch_states
-		for n in values(t.lnodes)
-			delete!(n.data.dat, :fitchstate)
-		end
-	end
+mutable struct FitchData{T} <: TreeTools.TreeNodeData
+    observed_sequence::Vector{T}
+    reconstructed_sequence::Vector{T}
+    state::Set{T}
 end
 
-"""
-	fitch!(t::Tree, outkey=:ancestral_seq, seqkey=:seq; clear_fitch_states=true, variable_positions=missing)
-"""
-function fitch!(t::Tree, outkey=:seq, seqkey=:seq; clear_fitch_states=true, variable_positions=Int[])
-	fitchkey = :fitchstate
-	# Initializing ancestral sequences
-	seq = TreeTools.recursive_get(first(t.lleaves)[2].data.dat, seqkey)
-	init_ancestral_sequences!(t, outkey, seq)
-
-	#Getting variable positions
-	if ismissing(variable_positions)
-		variable_positions = 1:length(seq)
-	elseif isempty(variable_positions)
-		variable_positions = get_variable_positions(t, seqkey)
-	end
-
-	# Algorithm
-	for i in 1:length(seq)
-		if in(i, variable_positions)
-			init_fitchstates!(t, i, seqkey, fitchkey)
-			fitch_up!(t, fitchkey)
-			fitch_remove_gaps!(t, fitchkey)
-			fitch_root_state!(t, fitchkey)
-			fitch_down!(t, fitchkey)
-			fitch_remove_gaps!(t, fitchkey)
-			fitch_sample_sequence!(t, outkey, fitchkey)
-		else
-			for n in values(t.lnodes)
-				if !n.isleaf
-					TreeTools.recursive_push!(n.data.dat, seq[i], outkey)
-				end
-			end
-		end
-	end
-	# Clearing fitch states
-	if clear_fitch_states
-		for n in values(t.lnodes)
-			delete!(n.data.dat, :fitchstate)
-		end
-	end
+function FitchData{T}() where T
+    return FitchData{T}(Vector{T}(undef, 0), Vector{T}(undef, 0), Set{T}())
 end
 
-function init_ancestral_sequences!(t, outkey, seq)
-	for n in values(t.lnodes)
-		if !n.isleaf
-			n.data.dat[outkey] = similar(seq, 0)
-		end
-	end
+FitchData(::Val{T}) where T = FitchData(T[], T[], Set{T}())
+FitchData(os::BioSequence, rs::BioSequence) = FitchData(collect(os), collect(rs))
+FitchData(os::T, rs::T) where T = FitchData(os, rs, Set{eltype(T)}())
+function FitchData(observed_sequence::AbstractString)
+    return FitchData(collect(observed_sequence), Vector{Char}(undef, 0))
 end
-function init_ancestral_sequences!(t, outkey::Tuple, seq)
-	for n in values(t.lnodes)
-		if !n.isleaf
-			TreeTools.recursive_key_init!(n.data.dat, outkey[1:end-1]...)
-			TreeTools.recursive_set!(n.data.dat, similar(seq, 0), outkey...)
-		end
-	end
+function FitchData(observed_sequence::AbstractVector{T}) where T
+    return FitchData(observed_sequence, Vector{T}(undef, 0))
+end
+FitchData(os::BioSequence) = FitchData(collect(os))
+
+function Base.isempty(x::FitchData)
+    return isempty(x.observed_sequence) &&
+        isempty(x.reconstructed_sequence) &&
+        isempty(x.state)
 end
 
-"""
-	init_fitchstates!(t::Tree, i::Int, seqkey = :seq, fitchkey=:fitchstate)
-"""
-function init_fitchstates!(t::Tree, i::Int, seqkey::Union{Symbol, AbstractString}=:seq, fitchkey=:fitchstate)
-	for n in values(t.lleaves)
-		n.data.dat[fitchkey] = FitchState(n.data.dat[seqkey][i])
-	end
-	return nothing
+let pos::Int = 0
+    global current_pos() = pos
+    global reset_pos!() = (pos = 0)
+    global set_pos!(i) = (pos = i)
 end
-function init_fitchstates!(t::Tree, i::Int, seqkey::Tuple, fitchkey=:fitchstate)
-	for n in values(t.lleaves)
-		n.data.dat[fitchkey] = FitchState(TreeTools.recursive_get(n.data.dat, seqkey...)[i])
-	end
-	return nothing
+
+# """
+#     fitch(tree::Tree, sequences::AbstractDict)
+#     fitch(tree::tree, fastafile::AbstractString)
+# """
+function fitch(tree::Tree, sequences::AbstractDict)
+    tree_fitch = sequences_to_tree(tree, sequences)
+    fitch!(tree_fitch)
+    return tree_fitch
 end
-"""
-	ancestral_state(fstates::Vararg{FitchState{T}}) where T
-"""
-function ancestral_state(fs::FitchState{T}, fstates::Vararg{FitchState{T}}) where T
-	aFs = FitchState(Val(T))
-	union!(aFs, fs)
-	for s in fstates
-		intersect!(aFs, s)
-	end
-	if isempty(aFs) || (length(aFs.state) == 1 && isgap(first(aFs.state)))
-		union!(aFs, fs)
-		for s in fstates
-			union!(aFs, s)
-		end
-	end
-	return aFs
+function fitch(tree::Tree, fastafile::AbstractString)
+    tree_fitch = fasta_to_tree(tree, fastafile)
+    fitch!(tree_fitch)
+    return tree_fitch
+end
+function fitch(tree::Tree{<:FitchData})
+    tc = copy(tree)
+    reset_fitch_states!(tc)
+    fitch!(tc)
+
+    return tc
+end
+
+function fitch!(tree::Tree{<:FitchData})
+    check_tree(tree)
+    L = let
+        Ls = map(n -> length(n.data.observed_sequence), leaves(tree)) |> unique
+        length(Ls) > 1 && error("All leaf sequences do not have the same length")
+        first(Ls)
+    end
+
+    for pos in 1:L
+        set_pos!(pos)
+        foreach(init_fitchstate!, nodes(tree))
+        fitch_up!(tree.root)
+        fitch_down!(tree.root)
+    end
+
+    return nothing
+end
+
+function reset_fitch_states!(t::Tree{<:FitchData})
+    return foreach(nodes(t)) do n
+        n.data = FitchData(n.data.observed_sequence)
+    end
+end
+
+#=
+Check that tree is in a correct state to run Fitch
+=#
+function check_tree(tree)
+    # all leaves should have an observed sequence
+    for n in leaves(tree)
+        if isempty(n.data.observed_sequence)
+            throw(ErrorException("Leaf $(n.label) does not have an observed sequence"))
+        end
+    end
+    # internals should not have an observed sequence
+    for n in internals(tree)
+        if !isempty(n.data.observed_sequence)
+            error(
+                "Internal node $(n.label) should not have an observed sequence: $(n.data)"
+            )
+        end
+    end
+    # nodes should not already have a reconstructed sequence
+    for n in nodes(tree)
+        if !isempty(n.data.state) || !isempty(n.data.reconstructed_sequence)
+            error("Node $(n.label) has an already initialized fitch state: $(n.data)")
+        end
+    end
 end
 
 """
-	get_downstream_state!(an::TreeNode, fitchkey=:fitchstate)
+    init_fitchstate!(dat::FitchData)
+    init_fitchstate!(n::TreeNode)
+
+Initialize the fitch state at `current_pos()` using the observed sequence.
+If `dat.observed_sequence` is empty, the state remains empty.
+If it is not empty but shorter than `current_pos()`, an error is thrown.
 """
-function get_downstream_state!(an::TreeNode, fitchkey=:fitchstate)
-	an.data.dat[fitchkey] = ancestral_state((n.data.dat[fitchkey] for n in an.child)...)
-	nothing
+function init_fitchstate!(dat::FitchData)
+    if !isempty(dat.observed_sequence)
+        if length(dat.observed_sequence) < current_pos()
+            throw(ErrorException("
+                Sequence shorter than expected:\
+                wanted at least $(current_pos()), but $(length(dat.observed_sequence))
+            "))
+        end
+        dat.state = Set(dat.observed_sequence[current_pos()])
+    end
+    return dat.state
+end
+init_fitchstate!(n::TreeNode{<:FitchData}) = init_fitchstate!(data(n))
+
+function fitch_up!(n::TreeNode{<:FitchData})
+    # recursive call
+    for c in children(n)
+        fitch_up!(c)
+    end
+    # actual computation: build the state of n using states of children
+    !isleaf(n) && pull_downstream_state!(n)
+end
+function pull_downstream_state!(n::TreeNode)
+    # trying intersect
+    # union with first child (to init.) then intersect with the rest
+    c1, other_children = firstrest(children(n))
+    union!(data(n).state, c1.data.state)
+    for c in other_children
+        intersect!(data(n).state, data(c).state)
+    end
+    # if intersect is empty, go for union!
+    if isempty(data(n).state)
+        for c in children(n)
+            union!(data(n).state, data(c).state)
+        end
+    end
+
+    return nothing
 end
 
-"""
-"""
-function fitch_up!(r::TreeNode, fitchkey)
-	for c in r.child
-		!c.isleaf && fitch_up!(c, fitchkey)
-	end
-	get_downstream_state!(r, fitchkey)
-end
-fitch_up!(t::Tree, fitchkey=:fitchstate) = fitch_up!(t.root, fitchkey)
+function fitch_down!(n::TreeNode)
+    # get the state from ancestor
+    if !isroot(n)
+        pull_upstream_state!(n)
+    end
+    # sample state at current position
+    sample_from_state!(n.data)
+    # go to children
+    foreach(fitch_down!, children(n))
 
-"""
-"""
-function fitch_root_state!(t::Tree, fitchkey=:fitchstate)
-	fs = t.root.data.dat[fitchkey]
-	L = Dict{Any,Float64}()
-	# Compute likelihood of each possible state
-	for (k,a) in enumerate(fs.state)
-		for c in t.root.child
-			if !ismissing(c.tau)
-				!haskey(L,a) && (L[a] = 0.)
-				if isempty(intersect([a], c.data.dat[fitchkey].state))
-					# Mutation needed
-					L[a] += 1 - exp(-c.tau)
-				else
-					L[a] += exp(-c.tau)
-				end
-			end
-		end
-	end
-	amax = isempty(L) ? rand(fs.state) : findmax(L)[2]
-	filter!(==(amax), fs.state)
+    return nothing
+end
+function pull_upstream_state!(n::TreeNode)
+    if length(ancestor(n).data.state) != 1
+        throw(ErrorException("""
+            Ancestor of $n does not have a fixed state on downward pass: $(a.data.state)
+        """))
+    end
+    if isdisjoint(ancestor(n).data.state, n.data.state)
+        # take the union
+        union!(n.data.state, ancestor(n).data.state)
+    else
+        # intersection
+        intersect!(n.data.state, ancestor(n).data.state)
+    end
+    return n.data.state
 end
 
-"""
-	set_child_state!(fs_child::FitchState{T}, fs_anc::FitchState{T}) where T
-"""
-function set_child_state!(fs_child::FitchState{T}, fs_anc::FitchState{T}) where T
-	if length(fs_anc) > 1
-		error("State $(fs_anc.state) on downward pass")
-	end
-	if in(first(fs_anc.state), fs_child.state)
-		filter!(==(first(fs_anc.state)), fs_child.state)
-	else
-		a = rand(fs_child.state)
-		filter!(==(a), fs_child.state)
-	end
-end
-"""
-"""
-function get_upstream_state!(n::TreeNode, fitchkey=:fitchstate)
-	set_child_state!(n.data.dat[fitchkey], n.anc.data.dat[fitchkey])
-end
-function fitch_down!(r::TreeNode, fitchkey)
-	!r.isroot && get_upstream_state!(r, fitchkey)
-	for c in r.child
-		!c.isleaf && fitch_down!(c, fitchkey)
-	end
-end
-fitch_down!(t::Tree, fitchkey=:fitchstate) = fitch_down!(t.root, fitchkey)
-
-"""
-"""
-function fitch_remove_gaps!(t, fitchkey=:fitchstate)
-	for n in values(t.lnodes)
-		if !n.isleaf && length(n.data.dat[fitchkey]) > 1
-			filter!(!isgap, n.data.dat[fitchkey].state)
-		end
-	end
+function sample_from_state!(dat::FitchData)
+    if length(dat.reconstructed_sequence) != current_pos() - 1
+        throw(ErrorException("""
+            Trying to sample pos $(current_pos())\
+            in sequence of length $(length(dat.reconstructed_sequence)).
+            $dat
+        """))
+    end
+    a = @chain length(dat.state) rand(1:_) nth(dat.state, _)
+    push!(dat.reconstructed_sequence, a)
+    dat.state = Set(a)
+    return a
 end
 
-function fitch_sample_state!(t::Tree, fitchkey=:fitchstate)
-	for n in internals(t)
-		n.data.dat[fitchkey] = FitchState(rand(n.data.dat[fitchkey].state))
-	end
-end
 
-"""
-"""
-function fitch_sample_sequence!(t::Tree, outkey::Tuple, fitchkey=:fitchstate)
-	for n in values(t.lnodes)
-		if !n.isleaf
-			TreeTools.recursive_push!(n.data.dat, rand(n.data.dat[fitchkey].state), outkey...)
-		end
-	end
-end
-function fitch_sample_sequence!(t::Tree, outkey::Union{Symbol, AbstractString}, fitchkey=:fitchstate)
-	for n in values(t.lnodes)
-		if !n.isleaf
-			push!(n.data.dat[outkey], rand(n.data.dat[fitchkey].state))
-		end
-	end
-end
-fitch_sample(fs::FitchState{DNA}) = LongDNASeq([rand(s) for s in fs.state])
-fitch_sample(fs::FitchState{RNA}) = LongRNASeq([rand(s) for s in fs.state])
-fitch_sample(fs::FitchState{AminoAcid}) = LongAminoAcidSeq([rand(s) for s in fs.state])
-fitch_sample(fs::FitchState{Char}) = LongCharSeq([rand(s) for s in fs.state])
 
-function fitch_get_mutations!(t::Tree, i::Integer, outkey, fitchkey)
-	for n in Iterators.filter(n->!n.isroot, nodes(t))
-		fitch_get_mutations!(n, i, outkey, fitchkey)
-	end
-end
-function fitch_get_mutations!(n::TreeNode, i::Integer, outkey, fitchkey)
-	if first(n.anc.data.dat[fitchkey].state) != first(n.data.dat[fitchkey].state) &&
-		!isgap(first(n.anc.data.dat[fitchkey].state)) && !isgap(first(n.data.dat[fitchkey].state))
-		TreeTools.recursive_push!(n.data.dat, Mutation(i, first(n.anc.data.dat[fitchkey].state), first(n.data.dat[fitchkey].state)), outkey)
-	end
-end

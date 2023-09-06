@@ -1,64 +1,53 @@
+using Chain
 using Test
 using TreeAlgs.Fitch
 using TreeTools
-using BioSequences
 
 
-## Testing fitch
+treefile = "Fitch/tree.nwk"
+alnfile = "Fitch/aln.fasta"
+t = @chain treefile read_tree(_) Fitch.fasta_to_tree(_, alnfile)
 
-t = read_tree("Fitch/tree.nwk")
 mich = t.lnodes["A/Michigan/41/2015"]
 sing = t.lnodes["A/Singapore/H2013721a/2013"]
 penn = t.lnodes["A/Pennsylvania/28/2014"]
 thai = t.lnodes["A/Thailand/CU-CB166/2014"]
 flo = t.lnodes["A/Florida/62/2015"]
-
 n1 = lca(flo, thai)
 n2 = lca(sing, penn)
 r = t.root
 
-fasta2tree!(t, "Fitch/aln.fasta")
+@testset "Up" begin
+    for i in 1:5
+        Fitch.reset_fitch_states!(t)
+        Fitch.set_pos!(i)
 
-i = rand(1:5)
-Fitch.init_fitchstates!(t,i)
-@testset "Fitch init" begin
-	@test mich.data.dat[:fitchstate].state == [Set(DNA_G), Set(DNA_C), Set(DNA_C), Set(DNA_G), Set(DNA_Gap)][i]
+        #Init
+        foreach(Fitch.init_fitchstate!, nodes(t))
+        @test mich.data.state == [Set("G"), Set("C"), Set("C"), Set("G"), Set("-")][i]
+
+        # up
+        Fitch.fitch_up!(t.root)
+        @testset "Fitch up" begin
+            @test mich.data.state == [Set('G'), Set('C'), Set('C'), Set('G'), Set('-')][i]
+            @test n1.data.state == [Set(['C', 'A']), Set('C'), Set(['A', 'G']), Set('G'), Set(['A', '-'])][i]
+            @test n2.data.state == [Set(['C', 'A']), Set('C'), Set(['C', 'A']), Set('G'), Set(['A', '-'])][i]
+            @test mich.anc.data.state == [Set(['G', 'C', 'A']), Set('C'), Set(['C', 'A', 'G']), Set('G'), Set(['-'])][i]
+            @test t.root.data.state == [Set(['C', 'A']), Set(['C']), Set(['C', 'A']), Set(['G']), Set(['-'])][i]
+        end
+    end
 end
 
-Fitch.fitch_up!(t)
-@testset "Fitch up" begin
-	@test mich.data.dat[:fitchstate].state == [Set(DNA_G), Set(DNA_C), Set(DNA_C), Set(DNA_G), Set(DNA_Gap)][i]
-	@test n1.data.dat[:fitchstate].state == [Set([DNA_C, DNA_A]), Set(DNA_C), Set([DNA_A, DNA_G]), Set(DNA_G), Set([DNA_A, DNA_Gap])][i]
-	@test n2.data.dat[:fitchstate].state == [Set([DNA_C, DNA_A]), Set(DNA_C), Set([DNA_C, DNA_A]), Set(DNA_G), Set([DNA_A, DNA_Gap])][i]
-	@test mich.anc.data.dat[:fitchstate].state == [Set([DNA_G, DNA_C, DNA_A]), Set(DNA_C), Set([DNA_C, DNA_A, DNA_G]), Set(DNA_G), Set([DNA_Gap, DNA_A])][i]
-	@test t.root.data.dat[:fitchstate].state == [Set([DNA_C, DNA_A]), Set([DNA_C]), Set([DNA_C, DNA_A]), Set([DNA_G]), Set([DNA_Gap, DNA_A])][i]
-end
-
-Fitch.fitch_remove_gaps!(t)
-@testset "Fitch remove gaps" begin
-	@test n1.data.dat[:fitchstate].state == [Set([DNA_C, DNA_A]), Set([DNA_C]), Set([DNA_A, DNA_G]), Set([DNA_G]), Set([DNA_A])][i]
-	@test t.root.data.dat[:fitchstate].state == [Set([DNA_C, DNA_A]), Set([DNA_C]), Set([DNA_C, DNA_A]), Set([DNA_G]), Set([DNA_A])][i]
-	@test mich.data.dat[:fitchstate].state == [Set([DNA_G]), Set([DNA_C]), Set([DNA_C]), Set([DNA_G]), Set([DNA_Gap])][i]
-end
-
-fitch!(t, clear_fitch_states=false, variable_positions = missing)
-@testset "Fitch" begin
-	@test in(t.root.data.dat[:seq], [dna"ACAGA", dna"ACCGA", dna"CCAGA", dna"CCCGA"])
-	@test in(mich.anc.data.dat[:seq][1], [DNA_C, DNA_A])
-	@test in(mich.anc.data.dat[:seq][3], [DNA_C, DNA_A])
-end
-
-fitch!(t, (:cmseq, :otherseg), clear_fitch_states=true, variable_positions = missing)
-@testset "Nested keys" begin
-	for n in values(t.lnodes)
-		if !n.isleaf
-			@test !haskey(n.data.dat, :fitchstate)
-			@test haskey(n.data.dat, :cmseq)
-			@test haskey(n.data.dat[:cmseq], :otherseg)
-		else
-			@test !haskey(n.data.dat, :fitchstate)
-			@test !haskey(n.data.dat, :cmseq)
-		end
-	end
-	@test in(t.root.data.dat[:cmseq][:otherseg], [dna"ACAGA", dna"ACCGA", dna"CCAGA", dna"CCCGA"])
+begin
+    Fitch.reset_fitch_states!(t)
+    Fitch.fitch!(t)
+    @testset "result" begin
+        @test string(t.root.data.reconstructed_sequence...) in ["ACAG-", "ACCG-", "CCAG-", "CCCG-"]
+        @test string(ancestor(mich).data.reconstructed_sequence...) in ["ACAG-", "ACCG-", "CCAG-", "CCCG-"]
+        @test string(n2.data.reconstructed_sequence...) in ["ACAG-", "ACCG-", "CCAG-", "CCCG-"]
+        @test in(
+            string(n1.data.reconstructed_sequence...),
+            ["ACAG-", "ACAG-", "ACCG-", "ACGG-", "CCAG-", "CCAG-", "CCCG-", "CCGG-"]
+        )
+    end
 end

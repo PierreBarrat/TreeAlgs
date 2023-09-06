@@ -1,0 +1,7 @@
+[deps]
+Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
+FASTX = "c2308a5c-f048-11e8-3e8a-31650f418d12"
+IterTools = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+TreeAlgs = "12935546-5c18-4ff8-8224-37e394524ca8"
+TreeTools = "62f0eae3-8c0e-4032-a621-7756092209e5"
